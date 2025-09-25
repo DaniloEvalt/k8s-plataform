@@ -4,7 +4,7 @@ metadata:
   name: php-app
   namespace: php-app
 spec:
-  replicas: 30
+  replicas: 3
   selector:
     matchLabels:
       app: php-app
@@ -12,66 +12,50 @@ spec:
     metadata:
       labels:
         app: php-app
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9253"
     spec:
       containers:
-      - name: php-app
-        image: php-app:latest
-        imagePullPolicy: Never # Para imagem local
+      - name: nginx
+        image: nginx:alpine
         ports:
         - containerPort: 80
           name: http
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "200m"
-          limits:
-            memory: "512Mi"
-            cpu: "1000m"
-        env:
-        - name: PHP_FPM_PM_MAX_CHILDREN
-          value: "20"
-        - name: PHP_FPM_PM_START_SERVERS
-          value: "5"
-        - name: PHP_FPM_PM_MIN_SPARE_SERVERS
-          value: "5"
-        - name: PHP_FPM_PM_MAX_SPARE_SERVERS
-          value: "10"
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: nginx.conf
+        - name: app-files
+          mountPath: /var/www/html
+      - name: php-app
+        image: php:8.2-fpm-alpine
+        volumeMounts:
+        - name: app-files
+          mountPath: /var/www/html
+        - name: php-app-config
+          mountPath: /usr/local/etc/php/conf.d/custom.ini
+          subPath: custom.ini
         livenessProbe:
           httpGet:
-            path: /health-check
+            path: /health-check.php
             port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /health-check
+            path: /health-check.php
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 5
-        volumeMounts:
-        - name: php-app-config
-          mountPath: /usr/local/etc/php/conf.d/custom.ini
-          subPath: custom.ini
-      - name: php-fpm-exporter
-        image: hipages/php-fpm_exporter:1.0
-        ports:
-        - containerPort: 9253
-        args:
-        - --phpfpm.scrape-uri=tcp://127.0.0.1:9000/status
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "64Mi"
-          limits:
-            cpu: "200m"
-            memory: "128Mi"
       volumes:
       - name: php-app-config
         configMap:
           name: php-app-config
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: app-files
+        configMap:
+          name: php-files
+          defaultMode: 0644
 ---
 apiVersion: v1
 kind: Service
@@ -85,24 +69,6 @@ spec:
   - name: http
     port: 80
     targetPort: 80
-  - name: metrics
-    port: 9253
-    targetPort: 9253
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: php-app-config
-  namespace: php-app
-data:
-  custom.ini: |
-    memory_limit = 256M
-    upload_max_filesize = 50M
-    post_max_size = 50M
-    max_execution_time = 30
-    display_errors = Off
-    log_errors = On
-    error_log = /proc/self/fd/2
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

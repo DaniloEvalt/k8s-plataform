@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-files
+  namespace: php-app
+data:
+  index.php: |
+    <?php
+    header('Content-Type: application/json');
+    echo json_encode([
+        'message' => 'PHP Application is running!',
+        'version' => PHP_VERSION,
+        'server' => $_SERVER['SERVER_NAME'],
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+  health-check.php: |
+    <?php
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'healthy']);

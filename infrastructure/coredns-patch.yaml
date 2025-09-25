@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      volumes:
+      - name: hosts-volume
+        configMap:
+          name: coredns-hosts
+      containers:
+      - name: coredns
+        volumeMounts:
+        - name: hosts-volume
+          mountPath: /etc/coredns
+          readOnly: true

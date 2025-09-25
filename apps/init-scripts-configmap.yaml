@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-scripts
+  namespace: php-app
+data:
+  init-php.sh: |
+    #!/bin/sh
+    set -e
+
+    # Copiar os arquivos PHP
+    cp /configmap/index.php /var/www/html/
+    cp /configmap/health-check.php /var/www/html/
+
+    # Ajustar permissões
+    chown -R www-data:www-data /var/www/html
+    chmod -R 644 /var/www/html/*
