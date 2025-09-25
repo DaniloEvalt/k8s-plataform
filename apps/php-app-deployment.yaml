@@ -18,7 +18,8 @@ spec:
     spec:
       containers:
       - name: php-app
-        image: seu-registry/php-app:latest  # Substitua pelo seu registry
+        image: php-app:latest
+        imagePullPolicy: Never # Para imagem local
         ports:
         - containerPort: 80
           name: http
@@ -114,7 +115,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
 spec:
   rules:
-  - host: app.seu-dominio.com  # Substitua pelo seu domínio
+  - host: plataforma.devalt.com.br
     http:
       paths:
       - path: /
