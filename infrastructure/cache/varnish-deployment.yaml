@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: varnish
+  namespace: php-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: varnish
+  template:
+    metadata:
+      labels:
+        app: varnish
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9131"
+    spec:
+      containers:
+      - name: varnish
+        image: varnish:7.3-alpine
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 9131
+          name: metrics
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: varnish-config
+          mountPath: /etc/varnish/default.vcl
+          subPath: default.vcl
+        env:
+        - name: VARNISH_SIZE
+          value: "256M"
+      - name: varnish-exporter
+        image: jonnenauha/prometheus_varnish_exporter:1.6.1
+        ports:
+        - containerPort: 9131
+          name: metrics
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+      volumes:
+      - name: varnish-config
+        configMap:
+          name: varnish-vcl
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: varnish-service
+  namespace: php-app
+spec:
+  selector:
+    app: varnish
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: metrics
+    port: 9131
+    targetPort: 9131

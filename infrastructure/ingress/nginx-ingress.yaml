@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-ingress
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.7.x
+    helm:
+      values: |
+        controller:
+          kind: DaemonSet
+          hostNetwork: true
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+          config:
+            use-forwarded-headers: "true"
+            compute-full-forwarded-for: "true"
+            use-proxy-protocol: "true"
+            proxy-buffer-size: "32k"
+            proxy-body-size: "50m"
+            server-tokens: "false"
+            ssl-protocols: "TLSv1.2 TLSv1.3"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

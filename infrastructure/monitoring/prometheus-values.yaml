@@ -1,0 +1,43 @@
+server:
+  persistentVolume:
+    size: 50Gi
+  retention: 15d
+  
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  alertmanager:
+    enabled: true
+    persistentVolume:
+      size: 10Gi
+
+  nodeExporter:
+    enabled: true
+
+  kubeStateMetrics:
+    enabled: true
+
+  pushgateway:
+    enabled: false
+
+  configmapReload:
+    enabled: true
+
+  extraScrapeConfigs: |
+    - job_name: 'php-fpm'
+      static_configs:
+        - targets: ['php-app:9253']
+    - job_name: 'varnish'
+      static_configs:
+        - targets: ['varnish:9131']
+    - job_name: 'nginx-ingress'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - ingress-nginx
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true

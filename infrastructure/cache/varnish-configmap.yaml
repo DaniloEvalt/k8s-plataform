@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: varnish-vcl
+  namespace: php-app
+data:
+  default.vcl: |
+    vcl 4.0;
+
+    import std;
+    import directors;
+
+    backend default {
+        .host = "php-app-service";
+        .port = "80";
+        .probe = {
+            .url = "/health-check";
+            .timeout = 2s;
+            .interval = 5s;
+            .window = 5;
+            .threshold = 3;
+        }
+    }
+
+    sub vcl_recv {
+        # Normalização do Host
+        if (req.http.host) {
+            set req.http.host = regsub(req.http.host, "^www\.", "");
+        }
+
+        # Health check
+        if (req.url ~ "^/health-check$") {
+            return (synth(200, "OK"));
+        }
+
+        # Bypass para métodos não GET/HEAD
+        if (req.method != "GET" && req.method != "HEAD") {
+            return (pass);
+        }
+
+        # Bypass para cookies de autenticação
+        if (req.http.Cookie ~ "PHPSESSID" || req.http.Cookie ~ "wordpress_logged_in") {
+            return (pass);
+        }
+
+        # Remove todos os cookies para requests que serão cacheados
+        unset req.http.Cookie;
+
+        return (hash);
+    }
+
+    sub vcl_backend_response {
+        # Cache por 1 hora por padrão
+        set beresp.ttl = 1h;
+        set beresp.grace = 1h;
+
+        # Não cachear respostas com cookies de sessão
+        if (beresp.http.Set-Cookie ~ "PHPSESSID" || beresp.http.Set-Cookie ~ "wordpress_logged_in") {
+            set beresp.uncacheable = true;
+            return (deliver);
+        }
+
+        # Remove Set-Cookie para respostas cacheáveis
+        unset beresp.http.Set-Cookie;
+
+        return (deliver);
+    }
+
+    sub vcl_deliver {
+        # Adiciona headers de debug em produção
+        if (obj.hits > 0) {
+            set resp.http.X-Cache = "HIT";
+        } else {
+            set resp.http.X-Cache = "MISS";
+        }
+        set resp.http.X-Cache-Hits = obj.hits;
+    }
